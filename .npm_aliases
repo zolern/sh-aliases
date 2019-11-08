@@ -1,0 +1,188 @@
+#!/bin/bash
+
+# taken from lukechilds/get_latest_release.sh | https://gist.github.com/lukechilds/a83e1d7127b78fef38c2914c4ececc3c
+# Usage
+# $ get_latest_release "nvm-sh/nvm"
+# v0.35.1
+function get_latest_release {
+  curl --silent "https://api.github.com/repos/$1/releases/latest" | # Get latest release from GitHub api
+    grep '"tag_name":' |                                            # Get tag line
+    sed -E 's/.*"([^"]+)".*/\1/'                                    # Pluck JSON value
+}
+
+# nvm update
+alias nvm-upd='wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/$(get_latest_release "nvm-sh/nvm")/install.sh | bash'
+
+function nver {
+    local nodever=$(node -v)
+    local npmver=$(npm -v)
+    local nvmver=$(nvm --version)
+
+    echo "node version: $nodever, npm version: $npmver, nvm version: $nvmver"
+}
+
+# node maintenance (install/delete nodeJS versions)
+# nvm is used, start nvm-upd before first use
+function nn {
+    function showNNHelp {
+        echo "Usage: nn option [node-version]"
+        echo "Shows node version if option omitted"
+
+        echo "Options:"
+        {
+            echo -e "  i\tInstall node (via nvm)"
+            echo -e "  l\tList installed node version"
+            echo -e "  u\tUninstall node (via nvm)"
+        } | column -s $'\t' -t
+    }
+
+    function setNNVer {
+        nvm use $1
+        nvm alias default $1
+    }
+
+    case "$1" in
+    10) setNNVer 10 ;;
+    12) setNNVer 12 ;;
+    i)
+        shift
+        if [ -z "$1" ]; then
+            echo " n ni <node-version> [<use-module-from nove version>]"
+        else
+            if [ -n "$2" ]; then
+                nvm install $1 --reinstall-packages-from=$2
+            else
+                local niv=$(nvm current)
+                nvm install $1  --reinstall-packages-from=$niv
+            fi
+            setNNVer $1
+        fi
+        ;;
+
+    l) nvm ls ;;
+    v) nvm --version ;;
+    u)
+        shift
+        if [ -z "$1" ]; then
+            echo " nn u <node-version>"
+        else
+            nvm uninstall $1
+        fi
+        ;;
+    h) showNNHelp ;;
+    -h) showNNHelp ;;
+    --help) showNNHelp ;;
+    -\?) showNNHelp ;;
+    *) nver ;;
+    esac
+}
+
+# npm maintenance (install/delete/list npm modules)
+function n {
+
+    function setEnv {
+        case $1 in
+            dev)  export NODE_ENV=development ;;
+            d)    export NODE_ENV=development ;;
+            prod) export NODE_ENV=production ;;
+            p)    export NODE_ENV=production ;;
+            none)   export NODE_ENV= ;;
+            \-)   export NODE_ENV= ;;
+            *)  if [ -n "$1" ]; then
+                    echo "Set NodeJS environment type"
+                    echo ""
+                    echo "   n env [dev|prod|-]"
+                    echo ""
+                    echo -e "\tdev\tSet type to 'development'"
+                    echo -e "\tprod\tSet type to 'production'"
+                    echo -e "\t-\tUnset type (set to none)"
+                    echo ""
+                fi
+                ;;
+        esac
+        if [ -z "$NODE_ENV" ]; then
+            echo "NodeJS environment: <not set>"
+        else
+            echo "NodeJS environment: $NODE_ENV"
+        fi
+    }
+
+    function showHelp {
+        echo "Usage: n option [package [...]]"
+        echo "Shows node and npm version if option omitted"
+
+        echo "Options:"
+        {
+            echo -e "  l\tList installed modules (local)"
+            echo -e "  lg, gl\tList installed global packages"
+            echo -e "  p\tPackage version info"
+            echo -e "  i\tInstall package(s) or all packages if package(s) omitted"
+            echo -e "  ip\tInstall all non-dev packages"
+            echo -e "  id\tInstall package(s) as dev dependency"
+            echo -e "  ig, gi\tInstall global package(s)"
+            echo -e "  u\tUninstall package(s)"
+            echo -e "  ug, gu\tUninstall global package(s)"
+            echo -e "  env\tNODE environment managment"
+        } | column -s $'\t' -t
+    }
+
+    if [ $# -eq 0 ]; then
+        nver
+        return
+    fi
+
+    case "$1" in
+    10) nn 10 ;;
+    12) nn 12 ;;
+    l) npm list --depth=0 ;;
+    lg) npm list -g --depth=0 ;;
+    gl) npm list -g --depth=0 ;;
+    p)
+        shift
+        while [ -n "$1" ]; do
+            echo "  $1: $(npm view $1 version)"
+            shift
+        done
+    ;;
+    i)
+        shift
+        npm install --save $@
+        ;;
+    ip)
+        shift
+        npm install --only=prod
+        ;;
+    id)
+        shift
+        npm install --save-dev $@
+        ;;
+    ig)
+        shift
+        npm install -g $@
+        ;;
+    gi)
+        shift
+        npm install -g $@
+        ;;
+    u)
+        shift
+        npm uninstall $@
+        ;;
+    ug)
+        shift
+        npm uninstall -g $@
+        ;;
+    gu)
+        shift
+        npm uninstall -g $@
+        ;;
+    env) setEnv $2 ;;
+    e) setEnv $2 ;;
+    h) showHelp ;;
+    -h) showHelp ;;
+    --help) showHelp ;;
+    -\?) showHelp ;;
+    *) nver ;;
+    esac
+}
+
