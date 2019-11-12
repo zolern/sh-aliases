@@ -21,18 +21,20 @@ function nver {
     echo "node version: $nodever, npm version: $npmver, nvm version: $nvmver"
 }
 
-# node maintenance (install/delete nodeJS versions)
-# nvm is used, start nvm-upd before first use
 function nn {
     function showNNHelp {
-        echo "Usage: nn option [node-version]"
-        echo "Shows node version if option omitted"
+        echo "Usage: nn [option] [node-version]"
+        echo "Changes nodeJS version if option is ommited"
+        echo "Shows node version if option and version are omitted"
 
         echo "Options:"
         {
             echo -e "  i\tInstall node (via nvm)"
+            echo -e "  a\tAdd (alias to Install) node (via nvm)"
             echo -e "  l\tList installed node version"
             echo -e "  u\tUninstall node (via nvm)"
+            echo -e "  r\tRemove (alias to Uninstall) node (via nvm)"
+            echo -e "  d\tDelete (alias to Uninstall) node (via nvm)"
         } | column -s $'\t' -t
     }
 
@@ -41,43 +43,57 @@ function nn {
         nvm alias default $1
     }
 
-    case "$1" in
-    10) setNNVer 10 ;;
-    12) setNNVer 12 ;;
-    i)
-        shift
+    function installNNVer {
         if [ -z "$1" ]; then
-            echo " n ni <node-version> [<use-module-from nove version>]"
+            echo " nn <node-version> [<use-module-from nove version>]"
         else
             if [ -n "$2" ]; then
-                nvm install $1 --reinstall-packages-from=$2
+                nvm install "v$1" --latest-npm --reinstall-packages-from=$2
             else
                 local niv=$(nvm current)
-                nvm install $1  --reinstall-packages-from=$niv
+                nvm install "v$1" --latest-npm --reinstall-packages-from=$niv
             fi
             setNNVer $1
         fi
-        ;;
+    }
 
-    l) nvm ls ;;
-    v) nvm --version ;;
-    u)
-        shift
+    function uninstallNNVer {
         if [ -z "$1" ]; then
             echo " nn u <node-version>"
         else
             nvm uninstall $1
         fi
-        ;;
+    }
+
+    case "$1" in
+    [0-9]*) setNNVer $1 ;;
+    i)
+        shift
+        installNNVer $1 $2;;
+    a)
+        shift
+        installNNVer $1 $2;;
+    l) nvm ls ;;
+    v) nvm --version ;;
+    u)
+        shift
+        uninstallNNVer $1 ;;
+    d)
+        shift
+        uninstallNNVer $1 ;;
+    r)
+        shift
+        uninstallNNVer $1 ;;
     h) showNNHelp ;;
     -h) showNNHelp ;;
     --help) showNNHelp ;;
     -\?) showNNHelp ;;
+    \/h) showNNHelp ;;
+    [?]) showNNHelp ;;
     *) nver ;;
     esac
 }
 
-# npm maintenance (install/delete/list npm modules)
 function n {
 
     function setEnv {
@@ -132,8 +148,7 @@ function n {
     fi
 
     case "$1" in
-    10) nn 10 ;;
-    12) nn 12 ;;
+    [0-9]*) nn $1 ;;
     l) npm list --depth=0 ;;
     lg) npm list -g --depth=0 ;;
     gl) npm list -g --depth=0 ;;
